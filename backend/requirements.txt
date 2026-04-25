@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+google-generativeai
+slowapi
+pytest
+httpx
+python-dotenv
