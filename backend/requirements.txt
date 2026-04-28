@@ -5,3 +5,4 @@ slowapi
 pytest
 httpx
 python-dotenv
+async-lru

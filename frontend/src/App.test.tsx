@@ -6,19 +6,36 @@ import App from './App';
 // Mock fetch globally
 global.fetch = vi.fn();
 
+// Mock Firebase
+vi.mock('./firebase', () => ({
+  signInUser: vi.fn().mockResolvedValue({ uid: 'test-user-123' }),
+  auth: { currentUser: { uid: 'test-user-123' } },
+  db: {}
+}));
+
+// Mock Firestore
+vi.mock('firebase/firestore', () => ({
+  collection: vi.fn(),
+  addDoc: vi.fn(),
+  serverTimestamp: vi.fn()
+}));
+
 describe('CivicGuide App', () => {
-  it('renders the chat interface with accessibility elements', () => {
+  it('renders the chat interface with accessibility elements', async () => {
     render(<App />);
     
     expect(screen.getByText('CivicGuide')).toBeInTheDocument();
-    expect(screen.getByRole('main')).toBeInTheDocument();
+    
+    // Wait for suspense to load ChatWindow
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Type your message here...')).toBeInTheDocument();
+    });
     
     // Check if the chat region is aria-live
     const chatRegion = document.querySelector('[aria-live="polite"]');
     expect(chatRegion).toBeInTheDocument();
     
     // Check if the input and send button exist and have correct labels
-    expect(screen.getByPlaceholderText('Type your message here...')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send message' })).toBeInTheDocument();
   });
 
@@ -30,6 +47,11 @@ describe('CivicGuide App', () => {
 
     render(<App />);
     
+    // Wait for suspense
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Type your message here...')).toBeInTheDocument();
+    });
+
     const input = screen.getByPlaceholderText('Type your message here...');
     const sendBtn = screen.getByRole('button', { name: 'Send message' });
 

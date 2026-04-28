@@ -1,18 +1,35 @@
 import os
-from fastapi import FastAPI, Request, HTTPException
+import json
+import logging
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-import google.generativeai as genai
 from dotenv import load_dotenv
+from api.routes import router, limiter
 
 load_dotenv()
 
-# Setup Rate Limiter
-limiter = Limiter(key_func=get_remote_address)
+# Setup Google Cloud structured JSON logging
+class GCPJSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_record = {
+            "severity": record.levelname,
+            "message": record.getMessage(),
+            "timestamp": self.formatTime(record, self.datefmt),
+            "logger": record.name,
+        }
+        if record.exc_info:
+            log_record["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_record)
+
+logger = logging.getLogger("civicguide")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(GCPJSONFormatter())
+logger.addHandler(handler)
+
 app = FastAPI(title="CivicGuide API")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -26,81 +43,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure Gemini API
-API_KEY = os.environ.get("GEMINI_API_KEY")
-if API_KEY:
-    genai.configure(api_key=API_KEY)
-else:
-    print("WARNING: GEMINI_API_KEY environment variable not set.")
-
-# Define prompt constraint
-SYSTEM_INSTRUCTION = (
-    "You are CivicGuide, a highly accessible, neutral, and encouraging election process assistant. "
-    "Your goal is to explain voter registration, election timelines, and polling processes in simple, "
-    "digestible steps. When a user asks a question, first identify their current step in the election "
-    "journey (e.g., Unregistered, Registered but confused, Ready to vote). Format your responses using "
-    "clear bullet points, short paragraphs, and a reassuring tone. Ask one follow-up question at the end "
-    "to guide them to the next step. Do NOT discuss political candidates, parties, or controversial topics. "
-    "Maintain strict neutrality."
-)
-
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-
-class ChatRequest(BaseModel):
-    messages: list[ChatMessage]
-
-class ChatResponse(BaseModel):
-    reply: str
-
-@app.post("/api/chat", response_model=ChatResponse)
-@limiter.limit("10/minute")
-async def chat_endpoint(request: Request, payload: ChatRequest):
-    """
-    Handles chat messages and interacts with the Google Gemini API.
-    """
-    if not API_KEY:
-        raise HTTPException(status_code=500, detail="Gemini API Key not configured")
-
-    try:
-        # Convert messages to Gemini format
-        history = []
-        for msg in payload.messages[:-1]: # All but the last message
-            role = "user" if msg.role == "user" else "model"
-            history.append({"role": role, "parts": [{"text": msg.content}]})
-
-        user_message = payload.messages[-1].content
-        
-        # Initialize model
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=SYSTEM_INSTRUCTION
-        )
-        
-        # Start chat with history
-        chat = model.start_chat(history=history)
-        
-        # Send message (async)
-        response = await chat.send_message_async(user_message)
-        
-        return ChatResponse(reply=response.text)
-
-    except Exception as e:
-        print(f"Error calling Gemini: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate response")
-
-@app.get("/api/health")
-async def health_check():
-    """Health check endpoint for testing and monitoring."""
-    return {"status": "ok"}
+# Include the API router
+app.include_router(router, prefix="/api")
 
 # Mount frontend static files
-# In development, this might not exist. In production (Docker), it will.
 frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 if os.path.exists(frontend_dist):
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
 else:
     @app.get("/")
     async def index_fallback():
+        logger.info("Serving fallback index route")
         return {"message": "Frontend not built yet. Use API at /api/chat"}
+
+logger.info("CivicGuide API startup complete.")
