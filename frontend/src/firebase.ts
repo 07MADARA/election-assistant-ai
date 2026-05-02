@@ -3,12 +3,12 @@ import { getAuth, signInAnonymously } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyARKzapuoleotwPSVRxBOTvPP8RXLmDth4",
-  authDomain: "civicguide-pw-2026.firebaseapp.com",
-  projectId: "civicguide-pw-2026",
-  storageBucket: "civicguide-pw-2026.firebasestorage.app",
-  messagingSenderId: "396731383793",
-  appId: "1:396731383793:web:85c48bbb87e26f2f9b0e50"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
