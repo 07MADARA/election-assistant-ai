@@ -6,7 +6,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
 interface ChatMessage {
-  role: 'user' | 'bot';
+  role: 'user' | 'model';
   content: string;
 }
 
@@ -33,7 +33,7 @@ const MessageItem = React.memo(({ msg }: { msg: ChatMessage }) => {
 const ChatWindow: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      role: 'bot',
+      role: 'model',
       content: 'Hello! I am CivicGuide, your election process assistant. Are you currently registered to vote, or do you need help getting started?'
     }
   ]);
@@ -95,7 +95,7 @@ const ChatWindow: React.FC = () => {
       }
 
       const data = await response.json();
-      const botMsg: ChatMessage = { role: 'bot', content: data.reply };
+      const botMsg: ChatMessage = { role: 'model', content: data.reply };
       const finalMessages = [...newMessages, botMsg];
       
       setMessages(finalMessages);

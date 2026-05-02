@@ -92,7 +92,7 @@ body {
   animation: fadeIn 0.3s ease-out;
 }
 
-.message.bot {
+.message.model {
   align-self: flex-start;
   background-color: var(--bot-msg-bg);
   border-bottom-left-radius: 4px;
